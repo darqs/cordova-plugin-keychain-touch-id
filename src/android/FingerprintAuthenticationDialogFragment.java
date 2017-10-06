@@ -17,22 +17,21 @@
 package com.cordova.plugin.android.fingerprintauth;
 
 import android.app.DialogFragment;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 /**
  * A dialog which uses fingerprint APIs to authenticate the user, and falls back to password
@@ -75,6 +74,12 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        // should fix problem with throwing android.content.res.Resources$NotFoundException
+        //      -> java.lang.RuntimeException by Fragment.getString
+        if (!isAdded()) {
+            return getFingerPrintDialog(inflater, container);
+        }
+
         Bundle args = getArguments();
         int dialogMode = args.getInt("dialogMode");
         String message = args.getString("dialogMessage");
@@ -84,10 +89,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
                 .getIdentifier("fingerprint_auth_dialog_title", "string",
                         FingerprintAuth.packageName);
         getDialog().setTitle(getString(fingerprint_auth_dialog_title_id));
-        int fingerprint_dialog_container_id = getResources()
-                .getIdentifier("fingerprint_dialog_container", "layout",
-                        FingerprintAuth.packageName);
-        View v = inflater.inflate(fingerprint_dialog_container_id, container, false);
+        View v = getFingerPrintDialog(inflater, container);
         int cancel_button_id = getResources()
                 .getIdentifier("cancel_button", "id", FingerprintAuth.packageName);
 
@@ -106,10 +108,6 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
         int fingerprint_container_id = getResources()
                 .getIdentifier("fingerprint_container", "id", FingerprintAuth.packageName);
         mFingerprintContent = v.findViewById(fingerprint_container_id);
-
-        int new_fingerprint_enrolled_description_id = getResources()
-                .getIdentifier("new_fingerprint_enrolled_description", "id",
-                        FingerprintAuth.packageName);
 
         int fingerprint_icon_id = getResources()
                 .getIdentifier("fingerprint_icon", "id", FingerprintAuth.packageName);
@@ -140,6 +138,14 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
     public void onPause() {
         super.onPause();
         mFingerprintUiHelper.stopListening();
+    }
+
+    @Override
+    public void show(FragmentManager manager, String tag) {
+        // should fix problem with throwing java.lang.IllegalStateException by DialogFragment.show
+        FragmentTransaction fragmentTransaction = manager.beginTransaction();
+        fragmentTransaction.add(this, TAG);
+        fragmentTransaction.commitAllowingStateLoss();
     }
 
     /**
@@ -216,6 +222,13 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
 
     public void setmFingerPrintAuth(FingerprintAuth mFingerPrintAuth) {
         this.mFingerPrintAuth = mFingerPrintAuth;
+    }
+
+    private View getFingerPrintDialog(LayoutInflater inflater, ViewGroup container) {
+        int fingerprint_dialog_container_id = getResources()
+                .getIdentifier("fingerprint_dialog_container", "layout",
+                        FingerprintAuth.packageName);
+        return inflater.inflate(fingerprint_dialog_container_id, container, false);
     }
 
     /**
